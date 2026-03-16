@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "WebFetch(domain:roshan-sahu.com)",
+      "WebFetch(domain:images.unsplash.com)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
