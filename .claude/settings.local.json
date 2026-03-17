@@ -6,7 +6,24 @@
       "WebFetch(domain:images.unsplash.com)",
       "Bash(npx tsc:*)",
       "Bash(python3:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:www.awwwards.com)",
+      "WebFetch(domain:bruno-simon.com)",
+      "WebFetch(domain:lusion.co)",
+      "WebFetch(domain:thefwa.com)",
+      "WebFetch(domain:tympanus.net)",
+      "WebFetch(domain:robbowen.digital)",
+      "WebFetch(domain:www.amos.wtf)",
+      "WebFetch(domain:mmcm.studio)",
+      "WebFetch(domain:unseen.co)",
+      "WebFetch(domain:antoinebresolin.com)",
+      "WebFetch(domain:www.thedesignership.com)",
+      "WebFetch(domain:howlonguntilmonday.com)",
+      "WebFetch(domain:activetheory.net)",
+      "WebFetch(domain:www.julienthibaut.fr)",
+      "WebFetch(domain:read.cv)",
+      "WebFetch(domain:www.siteinspire.com)",
+      "WebFetch(domain:search.muz.li)"
     ]
   }
 }

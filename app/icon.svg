@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .bg { fill: #1A1612; }
+    .mk { fill: #ebda28; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #FAF7F2; }
+      .mk { fill: #1A1612; }
+    }
+  </style>
+
+  <!-- Background -->
+  <rect class="bg" width="32" height="32" rx="7"/>
+
+  <!--
+    Bold geometric L — single filled path, no strokes.
+    3 rounded outer corners (Q bezier), 1 sharp outer top-right, 1 sharp inner step.
+    Stem: 5px wide. Foot: 5px tall. Equal weight = optically balanced.
+  -->
+  <path class="mk" d="
+    M 11 8
+    Q 9 8 9 10
+    L 9 22
+    Q 9 25 11 25
+    L 21 25
+    Q 23 25 23 23
+    L 23 20
+    L 14 20
+    L 14 8
+    Z
+  "/>
+</svg>
