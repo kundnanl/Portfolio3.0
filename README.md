@@ -1,40 +1,97 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portfolio 3.0 — Laksh Kundnani
+
+Personal portfolio for Laksh Kundnani — Software & Data Engineer at RBC. Built with Next.js, Three.js, and a focus on interactive, physics-driven UI.
+
+**LinkedIn:** [lakshkundnani](https://linkedin.com/in/lakshkundnani) &nbsp;|&nbsp; **GitHub:** [kundnanl](https://github.com/kundnanl) &nbsp;|&nbsp; **Email:** lakshkundnani78@gmail.com
+
+---
+
+## Tech Stack
+
+| Layer | Tools |
+|---|---|
+| Framework | Next.js 15 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS 4, CSS custom properties |
+| Animation | GSAP + ScrollTrigger, Framer Motion |
+| 3D / Physics | Three.js, React Three Fiber, Drei, Matter.js |
+| Smooth Scroll | Lenis |
+| Icons | Lucide React |
+
+---
+
+## Sections
+
+**Hero** — Animated title reveal with floating data-themed SVG icons (Kafka, Spark, pipelines, cloud nodes) and mouse parallax.
+
+**Projects** — Sticky-card stack with 3D tilt + glare effect. Features *Remote Collab Hub* and *Cerebro*.
+
+**About** — Word-by-word scroll-triggered paragraphs, stat grid, and a 3D draggable hobbies carousel.
+
+**Skills** — Interactive Matter.js physics canvas. Drag skill pills around — they collide, bounce, and settle. Three tabs: Core Capabilities, Tech Stacks, Services.
+
+**Footer** — Magnetic headline, live Toronto clock, email copy-to-clipboard, social links.
+
+---
+
+## UI Components
+
+- **MagneticCursor** — Custom cursor with a ring that lerps behind, enlarges on hover, inverts over dark sections
+- **SmoothScroll** — Lenis wrapper synced with GSAP ScrollTrigger
+- **CustomScrollbar** — Draggable proportional scrollbar thumb
+- **Navbar** — Hides on scroll-down, adapts color for dark sections via `data-dark` attribute
+
+---
+
+## Project Structure
+
+```
+portfolio3.0/
+├── app/
+│   ├── layout.tsx          # Root layout & metadata
+│   ├── page.tsx            # Section composition
+│   └── globals.css         # Design tokens, fonts, animations
+├── components/
+│   ├── sections/           # Hero, Projects, About, Skills, Footer
+│   └── ui/                 # Navbar, SmoothScroll, MagneticCursor, CustomScrollbar
+├── data/
+│   └── portfolio.ts        # Personal info, projects, skills, hobbies
+└── utils/
+    └── smoothNav.ts        # Lenis scroll-to helper
+```
+
+---
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Add images** to `public/images/`:
+- `project-1.jpg`, `project-2.jpg`
+- `hobby-music.jpg`, `hobby-travel.jpg`, `hobby-gym.jpg`, `hobby-tech.jpg`, `hobby-sports.jpg`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Update content** in `data/portfolio.ts`.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Design System
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Token | Value |
+|---|---|
+| Cream | `#FAF7F2` |
+| Ink | `#1A1612` |
+| Accent / Gold | `#ebda28` |
+| Display font | Yatra One (serif) |
+| Mono font | DM Mono |
+| Body font | Manrope |
+| Base rem | `62.5%` (1rem = 10px) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# Portfolio3.0
->>>>>>> a67a3e5945487790a0fb66eaca7598acb5656131
+MIT

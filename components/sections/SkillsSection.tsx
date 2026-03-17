@@ -227,14 +227,17 @@ export default function SkillsSection() {
       // Sync pixel ratio so click coordinates match the physics world
       mouse.pixelRatio = pixelRatio;
 
+      // angularStiffness is valid at runtime but missing from @types/matter-js
+      const constraintOptions = {
+        stiffness: 0.18,
+        damping: 0.08,
+        angularStiffness: 0.2,
+        render: { visible: false },
+      };
+
       const mouseConstraint = MouseConstraint.create(engine, {
         mouse,
-        constraint: {
-          stiffness: 0.18,
-          damping: 0.08,
-          angularStiffness: 0.2, // important: lets the body rotate naturally
-          render: { visible: false },
-        },
+        constraint: constraintOptions as Matter.IConstraintDefinition,
       });
 
       // Keep render in sync with the mouse
