@@ -1,208 +1,435 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import Matter from "matter-js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { skills as skillsData } from "@/data/portfolio";
 
+type SkillItem = { label: string; color: string };
 type Cat = keyof typeof skillsData;
-const cats = Object.keys(skillsData) as Cat[];
+
+const TEXT_COLOR = "rgba(26,22,18,0.88)";
+const FONT = "500 13px 'DM Mono', monospace";
 
 export default function SkillsSection() {
-  const sectionRef     = useRef<HTMLElement>(null);
-  const areaRef        = useRef<HTMLDivElement>(null);
-  const [tab, setTab]  = useState<Cat>(cats[0]);
-  const cleanupRef     = useRef<(() => void) | null>(null);
-  const hasLaunchedRef = useRef(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
 
-  const runPhysics = useCallback(async (category: Cat) => {
-    const area = areaRef.current;
-    if (!area) return;
+  const [tab, setTab] = useState<Cat>(Object.keys(skillsData)[0] as Cat);
 
-    // Tear down previous simulation
-    cleanupRef.current?.();
-    cleanupRef.current = null;
+  const sceneRef = useRef<{
+    engine: Matter.Engine | null;
+    render: Matter.Render | null;
+    runner: Matter.Runner | null;
+    resizeHandler: (() => void) | null;
+    afterRenderHandler: (() => void) | null;
+    bodies: Matter.Body[];
+    mouseConstraint: Matter.MouseConstraint | null;
+  }>({
+    engine: null,
+    render: null,
+    runner: null,
+    resizeHandler: null,
+    afterRenderHandler: null,
+    bodies: [],
+    mouseConstraint: null,
+  });
 
-    // Remove any leftover canvases from previous runs
-    area.querySelectorAll("canvas").forEach((c) => c.remove());
+  const launchedRef = useRef(false);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-    // Wait one frame so flex layout has resolved
-    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  const categories = useMemo(() => Object.keys(skillsData) as Cat[], []);
 
-    const W = area.clientWidth;
-    const H = area.clientHeight;
-    if (W === 0 || H === 0) return;
+  const destroyScene = useCallback(() => {
+    const scene = sceneRef.current;
 
-    try {
-      const M = (await import("matter-js")).default;
-      const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events } = M;
+    if (scene.resizeHandler) {
+      window.removeEventListener("resize", scene.resizeHandler);
+      scene.resizeHandler = null;
+    }
 
-      const engine = Engine.create({ gravity: { y: 1.2 } });
+    if (scene.render && scene.afterRenderHandler) {
+      Matter.Events.off(scene.render, "afterRender", scene.afterRenderHandler);
+      scene.afterRenderHandler = null;
+    }
 
-      // Let Matter.js create and inject its own canvas into the container
+    if (scene.runner) {
+      Matter.Runner.stop(scene.runner);
+    }
+
+    if (scene.render) {
+      Matter.Render.stop(scene.render);
+      scene.render.canvas.remove();
+      scene.render.textures = {};
+    }
+
+    if (scene.engine) {
+      Matter.World.clear(scene.engine.world, false);
+      Matter.Engine.clear(scene.engine);
+    }
+
+    scene.engine = null;
+    scene.render = null;
+    scene.runner = null;
+    scene.bodies = [];
+    scene.mouseConstraint = null;
+  }, []);
+
+  const buildScene = useCallback(
+    (category: Cat) => {
+      const area = areaRef.current;
+      if (!area) return;
+
+      const width = area.clientWidth;
+      const height = area.clientHeight;
+
+      if (!width || !height) return;
+
+      destroyScene();
+
+      const {
+        Engine,
+        Render,
+        Runner,
+        World,
+        Bodies,
+        Mouse,
+        MouseConstraint,
+        Events,
+        Composite,
+        Body,
+      } = Matter;
+
+      const engine = Engine.create({
+        gravity: { x: 0, y: 1.05 },
+      });
+
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
       const render = Render.create({
         element: area,
         engine,
         options: {
-          width:      W,
-          height:     H,
-          pixelRatio: 1,
+          width,
+          height,
           wireframes: false,
           background: "transparent",
+          pixelRatio,
         },
       });
 
-      // Make the auto-created canvas fill the container
-      render.canvas.style.cssText =
-        "position:absolute;top:0;left:0;width:100%;height:100%;display:block;";
+      /* ── Canvas styling ──────────────────────────────── */
+      Object.assign(render.canvas.style, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%",
+        display: "block",
+        pointerEvents: "auto",
+        touchAction: "none", // crucial – prevents browser from stealing touch events
+      });
 
-      // Invisible walls
-      const invis = { fillStyle: "transparent", strokeStyle: "transparent", lineWidth: 0 };
-      Composite.add(engine.world, [
-        Bodies.rectangle(W / 2, H + 25,  W * 2, 50,  { isStatic: true, render: invis }),
-        Bodies.rectangle(-25,   H / 2,   50,    H * 2, { isStatic: true, render: invis }),
-        Bodies.rectangle(W + 25, H / 2,  50,    H * 2, { isStatic: true, render: invis }),
-        Bodies.rectangle(W / 2, -25,     W * 2, 50,  { isStatic: true, render: invis }),
-      ]);
+      /* ── Prevent Lenis / parent scroll from swallowing pointer events ── */
+      const stopPropagation = (e: Event) => e.stopPropagation();
+      render.canvas.addEventListener("pointerdown", stopPropagation, {
+        passive: false,
+      });
+      render.canvas.addEventListener("pointermove", stopPropagation, {
+        passive: false,
+      });
+      render.canvas.addEventListener("touchstart", stopPropagation, {
+        passive: false,
+      });
+      render.canvas.addEventListener("touchmove", stopPropagation, {
+        passive: false,
+      });
 
-      // Badge bodies
-      const items: { label: string; color: string }[] = skillsData[category];
+      /* ── Walls ───────────────────────────────────────── */
+      const wallStyle = {
+        fillStyle: "transparent",
+        strokeStyle: "transparent",
+        lineWidth: 0,
+      };
+
+      const floor = Bodies.rectangle(width / 2, height + 30, width + 200, 60, {
+        isStatic: true,
+        render: wallStyle,
+      });
+
+      const leftWall = Bodies.rectangle(
+        -30,
+        height / 2,
+        60,
+        height + 200,
+        { isStatic: true, render: wallStyle }
+      );
+
+      const rightWall = Bodies.rectangle(
+        width + 30,
+        height / 2,
+        60,
+        height + 200,
+        { isStatic: true, render: wallStyle }
+      );
+
+      const topWall = Bodies.rectangle(
+        width / 2,
+        -220,
+        width + 400,
+        60,
+        { isStatic: true, render: wallStyle }
+      );
+
+      World.add(engine.world, [floor, leftWall, rightWall, topWall]);
+
+      /* ── Pill bodies ─────────────────────────────────── */
+      const items = skillsData[category] as SkillItem[];
       const bodies: Matter.Body[] = [];
 
-      items.forEach((item, i) => {
-        const isEmoji = [...item.label].length <= 2 && /\p{Emoji}/u.test(item.label);
-        const bW = isEmoji ? 60 : Math.min(Math.max(item.label.length * 11 + 44, 88), 260);
-        const bH = 50;
+      const getPillWidth = (label: string) => {
+        const emojiOnly = [...label].length <= 2 && /\p{Emoji}/u.test(label);
+        if (emojiOnly) return 64;
+        return Math.min(Math.max(label.length * 10.5 + 46, 96), 260);
+      };
 
-        const body = Bodies.rectangle(
-          40 + Math.random() * (W - 80),
-          -i * 90 - 80,
-          bW, bH,
-          {
-            restitution: 0.5,
-            friction:    0.18,
-            frictionAir: 0.012,
-            chamfer:     { radius: bH / 2 },
-            render:      { fillStyle: item.color },
+      items.forEach((item, index) => {
+        const pillW = getPillWidth(item.label);
+        const pillH = 50;
+
+        const x = 70 + Math.random() * Math.max(width - 140, 1);
+        const y = 40 + (index % 3) * 16 + Math.random() * 30;
+
+        const body = Bodies.rectangle(x, y, pillW, pillH, {
+          restitution: 0.55,
+          friction: 0.12,
+          frictionAir: 0.018,
+          density: 0.0022,
+          chamfer: { radius: pillH / 2 },
+          render: {
+            fillStyle: item.color,
           },
-        );
-        (body as unknown as Record<string, unknown>)._lbl = item.label;
+        });
+
+        Body.setVelocity(body, {
+          x: (Math.random() - 0.5) * 2.2,
+          y: Math.random() * 0.5,
+        });
+
+        (body as Matter.Body & { skillLabel?: string }).skillLabel = item.label;
         bodies.push(body);
       });
-      Composite.add(engine.world, bodies);
 
-      // Mouse drag support
+      World.add(engine.world, bodies);
+
+      /* ── Mouse constraint (THE FIX) ──────────────────── */
       const mouse = Mouse.create(render.canvas);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mAny = mouse as unknown as any;
-      if (mAny.mousewheel) {
-        mouse.element.removeEventListener("mousewheel",     mAny.mousewheel);
-        mouse.element.removeEventListener("DOMMouseScroll", mAny.mousewheel);
-      }
 
-      const mc = MouseConstraint.create(engine, {
+      // Sync pixel ratio so click coordinates match the physics world
+      mouse.pixelRatio = pixelRatio;
+
+      const mouseConstraint = MouseConstraint.create(engine, {
         mouse,
-        constraint: { stiffness: 0.2, damping: 0.01, render: { visible: false } },
+        constraint: {
+          stiffness: 0.18,
+          damping: 0.08,
+          angularStiffness: 0.2, // important: lets the body rotate naturally
+          render: { visible: false },
+        },
       });
-      Composite.add(engine.world, mc);
+
+      // Keep render in sync with the mouse
       render.mouse = mouse;
 
-      Events.on(mc, "startdrag", () => { render.canvas.style.cursor = "grabbing"; });
-      Events.on(mc, "enddrag",   () => { render.canvas.style.cursor = "grab"; });
+      World.add(engine.world, mouseConstraint);
+
+      /* ── Remove Matter's default wheel listeners so page still scrolls ── */
+      const mouseAny = mouse as unknown as {
+        mousewheel?: EventListener;
+        element?: HTMLElement;
+      };
+
+      if (mouseAny.mousewheel && mouseAny.element) {
+        mouseAny.element.removeEventListener(
+          "mousewheel",
+          mouseAny.mousewheel
+        );
+        mouseAny.element.removeEventListener(
+          "DOMMouseScroll",
+          mouseAny.mousewheel
+        );
+        mouseAny.element.removeEventListener("wheel", mouseAny.mousewheel);
+      }
+
+      /* ── Cursor feedback ─────────────────────────────── */
       render.canvas.style.cursor = "grab";
 
-      // Draw text labels over each pill
-      Events.on(render, "afterRender", () => {
-        const ctx = render.context;
-        bodies.forEach((b) => {
-          const lbl = (b as unknown as Record<string, unknown>)._lbl as string;
-          ctx.save();
-          ctx.translate(b.position.x, b.position.y);
-          ctx.rotate(b.angle);
-          ctx.fillStyle    = "rgba(26,22,18,0.85)";
-          ctx.font         = "500 13px 'DM Mono', monospace";
-          ctx.textAlign    = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(lbl, 0, 0);
-          ctx.restore();
-        });
+      Events.on(mouseConstraint, "startdrag", () => {
+        render.canvas.style.cursor = "grabbing";
       });
 
-      // Start — Matter.js 0.20 requires runner as first arg
+      Events.on(mouseConstraint, "enddrag", () => {
+        render.canvas.style.cursor = "grab";
+      });
+
+      /* ── Draw labels on each frame ───────────────────── */
+      const afterRenderHandler = () => {
+        const ctx = render.context;
+        ctx.save();
+        ctx.font = FONT;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        for (const body of bodies) {
+          const label =
+            (body as Matter.Body & { skillLabel?: string }).skillLabel || "";
+          ctx.save();
+          ctx.translate(body.position.x, body.position.y);
+          ctx.rotate(body.angle);
+          ctx.fillStyle = TEXT_COLOR;
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      };
+
+      Events.on(render, "afterRender", afterRenderHandler);
+
+      /* ── Run ─────────────────────────────────────────── */
       const runner = Runner.create();
       Runner.run(runner, engine);
       Render.run(render);
 
-      cleanupRef.current = () => {
-        Events.off(render, "afterRender");
-        Runner.stop(runner);
-        Render.stop(render);
-        Composite.clear(engine.world, false);
-        Engine.clear(engine);
-        render.canvas?.remove();
+      /* ── Resize handler ──────────────────────────────── */
+      let resizeTimeout: ReturnType<typeof setTimeout>;
+      const resizeHandler = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          const el = areaRef.current;
+          if (!el || !sceneRef.current.render) return;
+          const newWidth = el.clientWidth;
+          const newHeight = el.clientHeight;
+          if (!newWidth || !newHeight) return;
+          buildScene(category);
+        }, 150); // debounce so resize doesn't thrash
       };
-    } catch (err) {
-      console.error("[SkillsSection] physics init failed:", err);
-    }
-  }, []);
 
-  // Launch once the section enters the viewport
+      window.addEventListener("resize", resizeHandler);
+
+      sceneRef.current = {
+        engine,
+        render,
+        runner,
+        resizeHandler,
+        afterRenderHandler,
+        bodies,
+        mouseConstraint,
+      };
+
+      // Small settle nudge so everything starts lively
+      setTimeout(() => {
+        const allBodies = Composite.allBodies(engine.world).filter(
+          (b) => !b.isStatic
+        );
+        allBodies.forEach((b, i) => {
+          Body.applyForce(b, b.position, {
+            x: (i % 2 === 0 ? 1 : -1) * 0.0008,
+            y: 0,
+          });
+        });
+      }, 60);
+    },
+    [destroyScene]
+  );
+
+  /* ── Intersection observer: first launch ─────────────── */
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
 
-    const observer = new IntersectionObserver(
+    const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasLaunchedRef.current) {
-          hasLaunchedRef.current = true;
-          observer.disconnect();
-          runPhysics(tab);
-        }
+        if (!entry.isIntersecting || launchedRef.current) return;
+        launchedRef.current = true;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            buildScene(tab);
+          });
+        });
       },
-      { threshold: 0.05 },
+      { threshold: 0.08 }
     );
-    observer.observe(section);
 
-    return () => observer.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    io.observe(section);
 
-  // Re-run on tab switch (only after first launch)
+    return () => {
+      io.disconnect();
+    };
+  }, [buildScene, tab]);
+
+  /* ── Rebuild when tab changes ────────────────────────── */
   useEffect(() => {
-    if (!hasLaunchedRef.current) return;
-    runPhysics(tab);
-  }, [tab, runPhysics]);
+    if (!launchedRef.current) return;
+    buildScene(tab);
+  }, [tab, buildScene]);
 
-  // Cleanup on unmount
-  useEffect(() => () => { cleanupRef.current?.(); }, []);
+  /* ── ResizeObserver for container size changes ───────── */
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+
+    resizeObserverRef.current?.disconnect();
+
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    resizeObserverRef.current = new ResizeObserver(() => {
+      if (!launchedRef.current) return;
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => buildScene(tab), 150);
+    });
+    resizeObserverRef.current.observe(area);
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+    };
+  }, [buildScene, tab]);
+
+  /* ── Cleanup on unmount ──────────────────────────────── */
+  useEffect(() => {
+    return () => {
+      destroyScene();
+      resizeObserverRef.current?.disconnect();
+      launchedRef.current = false;
+    };
+  }, [destroyScene]);
 
   return (
     <section ref={sectionRef} id="skills" className="skills-section">
       <div className="skills-sticky">
-
-        <span className="section-label" style={{ marginBottom: "2rem", display: "block" }}>
+        <span className="section-label skills-label">
           Skills &amp; Services
         </span>
 
-        {/* Category tabs */}
         <div className="skills-tabs">
-          {cats.map((c) => (
+          {categories.map((c) => (
             <motion.button
               key={c}
+              type="button"
               className={`skills-tab${tab === c ? " active" : ""}`}
               onClick={() => setTab(c)}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.97 }}
             >
               {tab === c && <span>[</span>}
               {c}
               {tab === c && <span>]</span>}
             </motion.button>
           ))}
+
           <span className="skills-hint">Grab &amp; throw →</span>
         </div>
 
-        {/* Matter.js injects its canvas here */}
         <div ref={areaRef} className="skills-canvas-area" />
-
       </div>
     </section>
   );

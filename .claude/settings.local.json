@@ -4,7 +4,9 @@
       "Bash(cd:*)",
       "WebFetch(domain:roshan-sahu.com)",
       "WebFetch(domain:images.unsplash.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)"
     ]
   }
 }

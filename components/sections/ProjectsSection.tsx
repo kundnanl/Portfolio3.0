@@ -1,7 +1,13 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useMotionValue,
+} from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
@@ -9,15 +15,109 @@ import { projects } from "@/data/portfolio";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Assign a background image to each project card (pair rotated)
-const cardImages = [
-  "/images/proj-workspace.jpg",
-  "/images/proj-tech.jpg",
-  "/images/proj-workspace.jpg",
-  "/images/proj-tech.jpg",
-];
+function BrowserMockup({
+  src,
+  themeColor,
+  style,
+}: {
+  src: string;
+  themeColor: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: "1.6rem",
+        overflow: "hidden",
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.5), 0 12px 32px rgba(0,0,0,0.35)",
+        background: "#0d0d0d",
+        ...style,
+      }}
+    >
+      {/* Browser chrome */}
+      <div
+        style={{
+          height: "3.6rem",
+          background: "rgba(255,255,255,0.03)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 1.6rem",
+          gap: "0.7rem",
+          flexShrink: 0,
+        }}
+      >
+        {["#FF5F57", "#FEBC2E", "#28C840"].map((c, i) => (
+          <span
+            key={i}
+            style={{
+              width: "1rem",
+              height: "1rem",
+              borderRadius: "50%",
+              background: c,
+              opacity: 0.8,
+              flexShrink: 0,
+            }}
+          />
+        ))}
+        <div
+          style={{
+            flex: 1,
+            height: "2rem",
+            background: "rgba(255,255,255,0.04)",
+            borderRadius: "0.6rem",
+            margin: "0 1rem",
+            display: "flex",
+            alignItems: "center",
+            paddingLeft: "1rem",
+            gap: "0.5rem",
+          }}
+        >
+          <span
+            style={{
+              width: "0.6rem",
+              height: "0.6rem",
+              borderRadius: "50%",
+              background: themeColor,
+              opacity: 0.7,
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "DM Mono, monospace",
+              fontSize: "0.95rem",
+              color: "rgba(255,255,255,0.25)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            localhost:3000
+          </span>
+        </div>
+      </div>
 
-/* ── Single stacking project card ────────────────────────── */
+      {/* Screenshot */}
+      <div style={{ position: "relative", aspectRatio: "16/10", overflow: "hidden" }}>
+        <Image
+          src={src}
+          alt="Project screenshot"
+          fill
+          sizes="(max-width: 768px) 90vw, 55vw"
+          style={{ objectFit: "cover", objectPosition: "top" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 40%)",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ProjectCard({
   project,
   index,
@@ -25,38 +125,48 @@ function ProjectCard({
   project: (typeof projects)[0];
   index: number;
 }) {
-  const cardRef  = useRef<HTMLDivElement>(null);
-  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mockupRef = useRef<HTMLDivElement>(null);
 
-  // Parallax on the background image as card scrolls through view
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const glareX = useMotionValue(50);
+  const glareY = useMotionValue(50);
+
+  const springRX = useSpring(rotateX, { stiffness: 100, damping: 20 });
+  const springRY = useSpring(rotateY, { stiffness: 100, damping: 20 });
+
   const { scrollYProgress } = useScroll({
     target: cardRef,
     offset: ["start end", "end start"],
   });
-  const bgY     = useSpring(useTransform(scrollYProgress, [0, 1], ["-14%", "14%"]), { stiffness: 55, damping: 20 });
-  const bgScale = useSpring(useTransform(scrollYProgress, [0, 1], [1.22, 1.0]),     { stiffness: 55, damping: 20 });
 
-  // Animate content + progress lines when card is at the top
-  useEffect(() => {
-    const card = cardRef.current;
-    if (!card) return;
+  const bgY = useSpring(useTransform(scrollYProgress, [0, 1], ["-8%", "8%"]), {
+    stiffness: 50,
+    damping: 20,
+  });
 
-    ScrollTrigger.create({
-      trigger: card,
-      start: "top 20%",
-      onEnter: () => {
-        lineRefs.current.forEach((el, i) => {
-          if (!el) return;
-          gsap.to(el, { width: "100%", duration: 0.65, delay: i * 0.08, ease: "power2.out" });
-        });
-      },
-      onLeaveBack: () => {
-        lineRefs.current.forEach((el) => {
-          if (el) gsap.set(el, { width: "0%" });
-        });
-      },
-    });
-  }, []);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = mockupRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    rotateY.set((px - 0.5) * 12);
+    rotateX.set((py - 0.5) * -12);
+    glareX.set(px * 100);
+    glareY.set(py * 100);
+  };
+
+  const handleMouseLeave = () => {
+    rotateX.set(0);
+    rotateY.set(0);
+    glareX.set(50);
+    glareY.set(50);
+  };
+
+  const projectImage = project.images?.[0] ?? "/images/project-1.jpg";
+  const isEven = index % 2 === 1;
 
   return (
     <div
@@ -66,167 +176,228 @@ function ProjectCard({
         position: "sticky",
         top: 0,
         height: "100svh",
-        zIndex: index + 2,     // each card on top of previous
+        zIndex: index + 2,
         overflow: "hidden",
-        borderRadius: "3.2rem",
-        marginBottom: 0,
+        borderRadius: "2.4rem 2.4rem 0 0",
       }}
     >
-      {/* ── Parallax background image ──────────────────── */}
-      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: "3.2rem" }}>
+      {/* Background */}
+      <motion.div
+        style={{
+          position: "absolute",
+          inset: 0,
+          y: bgY,
+          transformOrigin: "center",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(ellipse at ${isEven ? "25%" : "75%"} 35%, ${project.themeColor}44 0%, #0a0a0a 60%)`,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0.03,
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+            backgroundSize: "256px",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+          }}
+        />
+      </motion.div>
+
+      {/* Content grid */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 2,
+          height: "100%",
+          display: "grid",
+          gridTemplateColumns: isEven ? "1fr 1.15fr" : "1.15fr 1fr",
+          padding: "0 5.6rem",
+          gap: "5rem",
+          alignItems: "center",
+        }}
+      >
+        {/* Text side */}
         <motion.div
-          style={{ position: "absolute", inset: "-15%", y: bgY, scale: bgScale }}
+          style={{ order: isEven ? 2 : 1 }}
+          initial={{ opacity: 0, y: 48, filter: "blur(10px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-10%" }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
         >
-          <Image
-            src={cardImages[index % cardImages.length]}
-            alt={project.title}
-            fill
-            sizes="100vw"
-            style={{ objectFit: "cover" }}
-            priority={index === 0}
-          />
-        </motion.div>
-        {/* Colour tint */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: project.themeColor,
-          opacity: 0.72,
-        }} />
-        {/* Gradient for readability */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.08) 100%)",
-        }} />
-      </div>
-
-      {/* ── Content ────────────────────────────────────── */}
-      <div style={{
-        position: "relative", zIndex: 1,
-        height: "100%", display: "flex", flexDirection: "column",
-        justifyContent: "flex-end", padding: "5.6rem",
-      }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", columnGap: "1.2rem", alignItems: "flex-end" }}>
-
-          {/* Left: meta + title + desc */}
-          <motion.div
-            style={{ gridColumn: "span 4" }}
-            initial={{ opacity: 0, y: 50, filter: "blur(8px)" }}
-            whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            viewport={{ once: true, margin: "-15%" }}
-            transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "1.2rem",
+              marginBottom: "3.2rem",
+            }}
           >
-            <span style={{
-              display: "block", marginBottom: "1.6rem",
-              fontFamily: "DM Mono, monospace", fontSize: "1.2rem",
-              letterSpacing: "0.06em", textTransform: "uppercase",
-              color: "rgba(255,255,255,0.45)",
-            }}>
-              {String(index + 1).padStart(2, "0")} — {project.year} · {project.type}
-            </span>
-
-            <h2 style={{
-              fontFamily: "Yatra One, serif",
-              fontSize: "var(--h2)",
-              letterSpacing: "-0.04em",
-              lineHeight: 1,
-              color: "white",
-            }}>
-              {project.title}
-            </h2>
-
-            <p style={{
-              fontFamily: "Manrope, sans-serif", fontSize: "1.5rem",
-              color: "rgba(255,255,255,0.6)", maxWidth: "480px",
-              lineHeight: 1.7, marginTop: "1.6rem",
-            }}>
-              {project.description}
-            </p>
-
-            <div style={{ marginTop: "2.8rem" }}>
-              <span className="ext-link">
-                <span className="br l">[</span>
-                View Case Study
-                <span className="br r">→]</span>
-              </span>
-            </div>
-          </motion.div>
-
-          {/* Right: tech tags + progress bars */}
-          <motion.div
-            style={{ gridColumn: "span 4", paddingLeft: "4.8rem" }}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15%" }}
-            transition={{ duration: 0.9, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-              {project.tech.map((t, i) => (
-                <div key={t}>
-                  <span style={{
-                    fontFamily: "DM Mono, monospace", fontSize: "1.3rem",
-                    letterSpacing: "0.04em", textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.6)",
-                  }}>{t}</span>
-                  <div style={{
-                    height: "1px", background: "rgba(255,255,255,0.18)",
-                    marginTop: "0.5rem", position: "relative", overflow: "hidden",
-                  }}>
-                    <div
-                      ref={(el) => { lineRefs.current[i] = el; }}
-                      style={{
-                        position: "absolute", inset: 0,
-                        background: "rgba(255,255,255,0.7)",
-                        width: "0%",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Card number badge */}
-            <div style={{
-              marginTop: "4.8rem",
-              width: "6.4rem", height: "6.4rem",
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.25)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "Yatra One, serif", fontSize: "2.4rem",
-              color: "white",
-            }}>
+            <span
+              style={{
+                fontFamily: "DM Mono, monospace",
+                fontSize: "1.1rem",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: project.themeColor,
+              }}
+            >
               {String(index + 1).padStart(2, "0")}
-            </div>
-          </motion.div>
+            </span>
+            <span
+              style={{ width: "3.2rem", height: "1px", background: `${project.themeColor}60` }}
+            />
+            <span
+              style={{
+                fontFamily: "DM Mono, monospace",
+                fontSize: "1.1rem",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.3)",
+              }}
+            >
+              {project.year} · {project.type}
+            </span>
+          </div>
 
-        </div>
+          <h2
+            style={{
+              fontFamily: "Yatra One, serif",
+              fontSize: "clamp(4rem, 5.5vw, 7rem)",
+              letterSpacing: "-0.04em",
+              lineHeight: 0.96,
+              color: "white",
+              marginBottom: "2.4rem",
+            }}
+          >
+            {project.title}
+          </h2>
+
+          <p
+            style={{
+              fontFamily: "Manrope, sans-serif",
+              fontSize: "1.5rem",
+              color: "rgba(255,255,255,0.48)",
+              maxWidth: "40rem",
+              lineHeight: 1.75,
+              marginBottom: "3.6rem",
+            }}
+          >
+            {project.description}
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.8rem" }}>
+            {project.tech.map((t) => (
+              <span
+                key={t}
+                style={{
+                  fontFamily: "DM Mono, monospace",
+                  fontSize: "1.1rem",
+                  letterSpacing: "0.04em",
+                  color: "rgba(255,255,255,0.5)",
+                  padding: "0.6rem 1.4rem",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "10rem",
+                  background: "rgba(255,255,255,0.03)",
+                }}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Mockup side */}
+        <motion.div style={{ order: isEven ? 1 : 2, perspective: "1200px" }}>
+          <div
+            ref={mockupRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              position: "relative",
+              transformStyle: "preserve-3d",
+            }}
+          >
+            <motion.div
+              style={{
+                rotateX: springRX,
+                rotateY: springRY,
+                transformStyle: "preserve-3d",
+                willChange: "transform",
+              }}
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.3 }}
+            >
+              <BrowserMockup src={projectImage} themeColor={project.themeColor} />
+
+              <motion.div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "1.6rem",
+                  pointerEvents: "none",
+                  background: useTransform(
+                    [glareX, glareY],
+                    ([x, y]) =>
+                      `radial-gradient(circle at ${x}% ${y}%, rgba(255,255,255,0.14), transparent 30%)`
+                  ),
+                }}
+              />
+            </motion.div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
 }
 
-/* ── Section ──────────────────────────────────────────────── */
 export default function ProjectsSection() {
   return (
     <section
       id="projects"
-      style={{ background: "var(--ink)", position: "relative", zIndex: 10 }}
+      style={{
+        background: "#080808",
+        position: "relative",
+        zIndex: 10,
+        paddingBottom: 0,
+        marginBottom: 0,
+      }}
     >
-      {/* Section header — sticks at very top */}
-      <div style={{
-        position: "sticky", top: 0, zIndex: 1,
-        padding: "2.4rem 4.8rem",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        background: "linear-gradient(to bottom, rgba(26,22,18,0.95) 0%, transparent 100%)",
-      }}>
-        <span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>
+      {/* Section header */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          padding: "2.8rem 5.6rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "linear-gradient(to bottom, rgba(8,8,8,0.96) 0%, transparent 100%)",
+          pointerEvents: "none",
+        }}
+      >
+        <span className="section-label" style={{ color: "rgba(255,255,255,0.35)" }}>
           Selected Work
         </span>
-        <span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>
+        <span className="section-label" style={{ color: "rgba(255,255,255,0.35)" }}>
           {projects.length} Projects
         </span>
       </div>
 
-      {/* Stacking sticky cards */}
       <div style={{ position: "relative" }}>
         {projects.map((p, i) => (
           <ProjectCard key={p.id} project={p} index={i} />

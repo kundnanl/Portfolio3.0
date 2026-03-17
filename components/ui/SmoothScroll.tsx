@@ -7,28 +7,51 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-export default function SmoothScroll({ children }: { children: React.ReactNode }) {
+export default function SmoothScroll({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   useEffect(() => {
+    // 1. Prevent browser from restoring old scroll position
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual";
+    }
+
+    // 2. Force scroll to top before Lenis takes over
+    window.scrollTo(0, 0);
+
     const lenis = new Lenis({
       lerp: 0.08,
       smoothWheel: true,
       syncTouch: false,
     });
 
-    // ── Critical: sync Lenis with GSAP ScrollTrigger ──────
-    lenis.on("scroll", ScrollTrigger.update);
+    // 3. Tell Lenis to start at position 0
+    lenis.scrollTo(0, { immediate: true });
 
-    gsap.ticker.add((time) => {
+    const onScroll = () => ScrollTrigger.update();
+    lenis.on("scroll", onScroll);
+
+    const tick = (time: number) => {
       lenis.raf(time * 1000);
-    });
+    };
+
+    gsap.ticker.add(tick);
     gsap.ticker.lagSmoothing(0);
 
-    // ── Expose lenis globally so components can use it ────
-    (window as unknown as Record<string, unknown>).__lenis = lenis;
+    (window as Window & { __lenis?: Lenis }).__lenis = lenis;
+
+    // 4. Recalculate ScrollTrigger after layout settles
+    const timeout = setTimeout(() => {
+      ScrollTrigger.refresh(true);
+    }, 150);
 
     return () => {
+      clearTimeout(timeout);
+      lenis.off("scroll", onScroll);
+      gsap.ticker.remove(tick);
       lenis.destroy();
-      gsap.ticker.remove((time) => lenis.raf(time * 1000));
     };
   }, []);
 
