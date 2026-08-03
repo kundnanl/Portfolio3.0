@@ -27,6 +27,7 @@ export const projects = [
     year: "2024",
     type: "SaaS Product",
     images: ["/images/project-1.jpg"],
+    githubUrl: "https://github.com/kundnanl/remote-collab-hub",
   },
   {
     id: "cerebro",
@@ -38,6 +39,7 @@ export const projects = [
     year: "2024",
     type: "AI Application",
     images: ["/images/project-2.jpg"],
+    githubUrl: "https://github.com/kundnanl/cerebro",
   },
 ];
 

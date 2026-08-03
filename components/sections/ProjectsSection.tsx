@@ -11,6 +11,7 @@ import {
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
+import { Github, ArrowUpRight } from "lucide-react";
 import { projects } from "@/data/portfolio";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -299,7 +300,7 @@ function ProjectCard({
             {project.description}
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.8rem" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.8rem", marginBottom: "3.2rem" }}>
             {project.tech.map((t) => (
               <span
                 key={t}
@@ -318,6 +319,45 @@ function ProjectCard({
               </span>
             ))}
           </div>
+
+          {project.githubUrl && (
+            <motion.a
+              href={project.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{
+                scale: 1.03,
+                borderColor: `${project.themeColor}90`,
+                background: `${project.themeColor}14`,
+              }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "1rem",
+                padding: "1.1rem 1.8rem",
+                border: "1px solid rgba(255,255,255,0.14)",
+                borderRadius: "10rem",
+                background: "rgba(255,255,255,0.04)",
+                textDecoration: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Github size={18} color="white" strokeWidth={1.75} />
+              <span
+                style={{
+                  fontFamily: "DM Mono, monospace",
+                  fontSize: "1.15rem",
+                  letterSpacing: "0.02em",
+                  color: "white",
+                }}
+              >
+                View on GitHub
+              </span>
+              <ArrowUpRight size={16} color="rgba(255,255,255,0.5)" strokeWidth={1.75} />
+            </motion.a>
+          )}
         </motion.div>
 
         {/* Mockup side */}
